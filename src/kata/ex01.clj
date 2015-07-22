@@ -1,41 +1,47 @@
 (ns kata.ex01)
 
-(defn apply-price-saving
+(defn- apply-price-saving
   [{unit-price :price} {price :price :as saving}]
   (assoc saving :price (price unit-price)))
 
-(defn apply-unit-price
+(defn- apply-unit-price
   [{item-quantity :quantity} {unit-price :price unit-quantity :quantity :as price}]
   (assoc price
     :quantity item-quantity
     :price (* unit-price (/ item-quantity unit-quantity))))
 
-(defn apply-savings
+(defn- price-breakdown
   ([price savings item]
-   (apply-savings price savings item []))
-  ([price savings {item-quantity :quantity :as item} price-breakdown]
+   (price-breakdown price savings item []))
+  ([price savings {item-quantity :quantity :as item} subtotal]
    (if (= 0 item-quantity)
-     price-breakdown
+     subtotal
      (if (empty? savings)
-       (conj price-breakdown (apply-unit-price item price))
-       (let [[{saving-quantity :quantity saving-price :price :as saving}] savings
-             without-saving (apply-savings price (rest savings) item price-breakdown)]
-         (if (> saving-quantity item-quantity)
+       (conj subtotal (apply-unit-price item price))
+       (let [[{saving-quantity :quantity :as saving}] savings
+             without-saving (price-breakdown price (rest savings) item subtotal)]
+         (if (< item-quantity saving-quantity)
            without-saving
            (let [item (assoc item :quantity (- item-quantity saving-quantity))
-                 price-breakdown (conj price-breakdown (apply-price-saving price saving))
-                 with-saving (apply-savings price savings item price-breakdown)]
+                 subtotal (conj subtotal (apply-price-saving price saving))
+                 with-saving (price-breakdown price savings item subtotal)]
              (if (<= (reduce + (map :price with-saving)) (reduce + (map :price without-saving)))
                with-saving
                without-saving))))))))
 
-(defn price-breakdown
+(defn- bill-items
   [prices savings {item-sku :sku item-quantity :quantity :as item}]
-  (let [price (first (filter (comp (partial = item-sku) :sku) prices))
+  (let [filter-by-sku #(filter (comp (partial = item-sku) :sku) %)
+        price (first (filter-by-sku prices))
         savings (->> savings
-                     (filter (comp (partial = item-sku) :sku))
+                     filter-by-sku
                      (sort-by :quantity >))]
-    (apply-savings price savings item)))
+    (->> (price-breakdown price savings item)
+         (group-by identity)
+         (map (fn [[{:keys [quantity price] :as k} v]]
+                (assoc k
+                  :quantity (* quantity (count v))
+                  :price (* price (count v))))))))
 
 (defn checkout
   [shopping-cart prices savings]
@@ -44,7 +50,7 @@
                    (map (fn [[_ items]]
                           (assoc (first items)
                             :quantity (reduce + (map #(get % :quantity 1) items)))))
-                   (mapcat (partial price-breakdown prices savings)))
+                   (mapcat (partial bill-items prices savings)))
         total (reduce + (map :price bill-items))]
     {:items bill-items
      :total total}))
@@ -70,9 +76,10 @@
 
     (def savings
       [(assoc can-of-beer :quantity 3 :price (fn [unit-price] 1.00) :description "buy 3 for £1.00")
+       (assoc can-of-beer :quantity 5 :price (fn [unit-price] 1.65) :description "buy 5 for £1.65")
        (assoc loose-apple :quantity 4 :price (fn [unit-price] (* 3 unit-price)) :description "buy 3 get 1 free")])
 
-    (checkout [(assoc can-of-beer :quantity 4)
+    (checkout [(assoc can-of-beer :quantity 7)
                (assoc loose-apple :quantity 5)
                (assoc greens :quantity 250)]
               prices
