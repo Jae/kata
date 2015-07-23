@@ -1,14 +1,34 @@
-(ns kata.ex01)
+(ns ^{:doc "http://codekata.com/kata/kata01-supermarket-pricing"}
+  kata.ex01)
 
-(defn- apply-price-saving
-  [{unit-price :price} {price :price :as saving}]
-  (assoc saving :price (price unit-price)))
+(defmulti unit-adjusted
+  (fn [{to-unit :unit} {from-unit :unit}] [from-unit to-unit]))
 
-(defn- apply-unit-price
-  [{item-quantity :quantity} {unit-price :price unit-quantity :quantity :as price}]
-  (assoc price
-    :quantity item-quantity
-    :price (* unit-price (/ item-quantity unit-quantity))))
+(defmethod unit-adjusted [:gram :ounce]
+  [_ {from-price :price from-quantity :quantity :as from}]
+  (assoc from
+    :unit :ounce
+    :quantity 1
+    :price (* (/ from-price from-quantity) 28.3495)))
+
+(defmethod unit-adjusted :default
+  [{to-unit :unit} {from-unit :unit :as from}]
+  (when-not (= from-unit to-unit)
+    (throw (Exception. (str "unit conversion from " from-unit " to " to-unit " is not defined."))))
+  from)
+
+(defn- apply-saving
+  [item price saving]
+  (let [{unit-price :price} (unit-adjusted item price)
+        {price :price :as saving} (unit-adjusted item saving)]
+    (assoc saving :price (price unit-price))))
+
+(defn- apply-price
+  [{item-quantity :quantity :as item} price]
+  (let [{unit-price :price unit-quantity :quantity :as price} (unit-adjusted item price)]
+    (assoc price
+      :quantity item-quantity
+      :price (* item-quantity (/ unit-price unit-quantity)))))
 
 (defn- price-breakdown
   ([price savings item]
@@ -17,13 +37,13 @@
    (if (= 0 item-quantity)
      subtotal
      (if (empty? savings)
-       (conj subtotal (apply-unit-price item price))
+       (conj subtotal (apply-price item price))
        (let [[{saving-quantity :quantity :as saving}] savings
              without-saving (price-breakdown price (rest savings) item subtotal)]
          (if (< item-quantity saving-quantity)
            without-saving
            (let [item (assoc item :quantity (- item-quantity saving-quantity))
-                 subtotal (conj subtotal (apply-price-saving price saving))
+                 subtotal (conj subtotal (apply-saving item price saving))
                  with-saving (price-breakdown price savings item subtotal)]
              (if (<= (reduce + (map :price with-saving)) (reduce + (map :price without-saving)))
                with-saving
@@ -81,6 +101,6 @@
 
     (checkout [(assoc can-of-beer :quantity 7)
                (assoc loose-apple :quantity 5)
-               (assoc greens :quantity 250)]
+               (assoc greens :quantity 3 :unit :ounce)]
               prices
               savings)))
