@@ -18,10 +18,8 @@
   from)
 
 (defn- apply-saving
-  [item price saving]
-  (let [{unit-price :price} (unit-adjusted item price)
-        {price :price :as saving} (unit-adjusted item saving)]
-    (assoc saving :price (price unit-price))))
+  [item saving]
+  (unit-adjusted item saving))
 
 (defn- apply-price
   [{item-quantity :quantity :as item} price]
@@ -43,7 +41,7 @@
          (if (< item-quantity saving-quantity)
            without-saving
            (let [item (assoc item :quantity (- item-quantity saving-quantity))
-                 subtotal (conj subtotal (apply-saving item price saving))
+                 subtotal (conj subtotal (apply-saving item saving))
                  with-saving (price-breakdown price savings item subtotal)]
              (if (<= (reduce + (map :price with-saving)) (reduce + (map :price without-saving)))
                with-saving
@@ -74,33 +72,3 @@
         total (reduce + (map :price bill-items))]
     {:items bill-items
      :total total}))
-
-(comment
-  (do
-    (def can-of-beer
-      {:sku :can-of-beer
-       :unit :ea})
-
-    (def loose-apple
-      {:sku :loose-apple
-       :unit :ea})
-
-    (def greens
-      {:sku :greens
-       :unit :gram})
-
-    (def prices
-      [(assoc can-of-beer :quantity 1 :price 0.40 :description "£0.40 each")
-       (assoc loose-apple :quantity 1 :price 0.45 :description "£0.45 each")
-       (assoc greens :quantity 100 :price 1.10 :description "£1.10 per 100 grams")])
-
-    (def savings
-      [(assoc can-of-beer :quantity 3 :price (fn [unit-price] 1.00) :description "buy 3 for £1.00")
-       (assoc can-of-beer :quantity 5 :price (fn [unit-price] 1.65) :description "buy 5 for £1.65")
-       (assoc loose-apple :quantity 4 :price (fn [unit-price] (* 3 unit-price)) :description "buy 3 get 1 free")])
-
-    (checkout [(assoc can-of-beer :quantity 7)
-               (assoc loose-apple :quantity 5)
-               (assoc greens :quantity 3 :unit :ounce)]
-              prices
-              savings)))

@@ -12,7 +12,3 @@
          (= at-middle needle) middle
          (< at-middle needle) (recur (+ middle 1) to)
          (> at-middle needle) (recur from middle))))))
-
-(comment
-  (int (/ (+ 0 (count [1 3])) 2))
-  (int (/ (+ 0 (count [1 3 5])) 2)))
