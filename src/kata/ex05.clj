@@ -1,6 +1,5 @@
 (ns ^{:doc "http://codekata.com/kata/kata05-bloom-filters"}
-  kata.ex05
-  (:require [clojure.java.io :as io]))
+  kata.ex05)
 
 (defn md5-hashes
   [variants word]
@@ -31,8 +30,3 @@
          (map #(.mod (java.math.BigInteger. 1 %)
                      (java.math.BigInteger/valueOf size)))
          (every? #(.get bits %)))))
-
-(defn words-from-file
-  [file-name]
-  (with-open [file (io/reader (io/resource file-name))]
-    (doall (line-seq file))))
